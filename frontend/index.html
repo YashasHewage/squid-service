@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IP Whitelist Client</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        button { margin-right: 1em; }
+        #output { margin-top: 2em; background: #f4f4f4; padding: 1em; border-radius: 5px; }
+        .instructions { color: #555; margin-bottom: 2em; }
+    </style>
+</head>
+<body>
+    <h1>IP Whitelist Test</h1>
+    <div class="instructions">
+        <strong>Instructions:</strong><br>
+        1. Start your backend server (<code>node server.js</code>).<br>
+        2. Serve this HTML file using a local web server (<code>npx serve .</code> or <code>python -m http.server</code>).<br>
+        3. Open the served address in your browser (e.g., <code>http://localhost:3000</code>).<br>
+        4. Click <b>Register My IP</b> to save your IP to the whitelist.<br>
+        5. Click <b>Fetch Whitelist</b> to view all whitelisted IPs.<br>
+    </div>
+    <button id="registerBtn">Register My IP</button>
+    <button id="fetchBtn">Fetch Whitelist</button>
+    <pre id="output"></pre>
+    <script src="main.js"></script>
+</body>
+</html>
