@@ -1,53 +1,94 @@
+version: '3'
+
 services:
+  # Redis database for IP storage
   redis:
     image: redis:latest
     container_name: redis
-    ports:
-      - "6379:6379"
     restart: always
+    volumes:
+      - redis-data:/data
+    networks:
+      - proxy-network
 
+  # Nginx serves as reverse proxy, handling proper header forwarding
+  nginx:
+    image: nginx:alpine
+    container_name: ip-whitelist-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - proxy-network
+
+  # Backend service for IP registration API
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     container_name: ip-whitelist-backend
-    ports:
-      - "3001:3001"
-    depends_on:
-      - redis
     environment:
       - REDIS_URL=redis://redis:6379
-    volumes:
-      - ./whitelist.txt:/data/whitelist.txt
+      - NODE_ENV=production
+      - TRUST_PROXY=true
+    depends_on:
+      - redis
+    networks:
+      - proxy-network
 
+  # Frontend for user interface
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
     container_name: ip-whitelist-frontend
-    ports:
-      - "3000:3000"
     depends_on:
       - backend
+    networks:
+      - proxy-network
 
+  # Service that updates whitelist.txt from Redis database
   clientservice:
     build:
       context: ./clientservice
       dockerfile: Dockerfile
     container_name: ip-whitelist-clientservice
+    volumes:
+      - type: bind
+        source: ./whitelist.txt
+        target: /data/whitelist.txt
+    environment:
+      - WHITELIST_API=http://backend:3001/whitelist
+      - UPDATE_INTERVAL=15000  # 15 seconds for faster updates
     depends_on:
       - backend
-    volumes:
-      - ./whitelist.txt:/data/whitelist.txt
+    restart: always
+    networks:
+      - proxy-network
 
+  # Squid proxy service
   squid:
     image: ubuntu/squid:4.10-20.04_beta
-    container_name: squid
+    container_name: squid-proxy
     ports:
       - "3128:3128"
     volumes:
-      - ./whitelist.txt:/data/whitelist.txt
+      - ./whitelist.txt:/data/whitelist.txt:ro
       - ./squid.conf:/etc/squid/squid.conf:ro
-      - ./passwd:/etc/squid/passwd
+      - ./squid-entrypoint.sh:/squid-entrypoint.sh:ro
+    entrypoint: ["sh", "-c", "chmod +x /squid-entrypoint.sh && /squid-entrypoint.sh"]
     depends_on:
       - clientservice
+    networks:
+      - proxy-network
+
+networks:
+  proxy-network:
+    driver: bridge
+
+volumes:
+  redis-data:
